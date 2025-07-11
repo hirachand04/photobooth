@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SnapMagic Photobooth</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .filter-option {
+            transition: all 0.3s ease;
+        }
+        .filter-option:hover {
+            transform: scale(1.05);
+        }
+        .filter-option.active {
+            border: 3px solid #3b82f6;
+            transform: scale(1.05);
+        }
+        .camera-container {
+            position: relative;
+            overflow: hidden;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+        .photo-collage {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            grid-gap: 8px;
+            position: relative;
+        }
+        .photo-collage::after {
+            content: attr(data-date);
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .photo-collage img {
+            width: 100%;
+            height: auto;
+            object-fit: cover;
+            border-radius: 4px;
+        }
+        .filter-normal {
+            filter: none;
+        }
+        .filter-sepia {
+            filter: sepia(80%);
+        }
+        .filter-grayscale {
+            filter: grayscale(100%);
+        }
+        .filter-vintage {
+            filter: contrast(1.1) brightness(1.1) sepia(0.3) saturate(1.5);
+        }
+        .filter-cool {
+            filter: brightness(1.05) saturate(1.5) hue-rotate(-10deg);
+        }
+        .filter-warm {
+            filter: brightness(1.05) saturate(1.5) hue-rotate(10deg) sepia(0.2);
+        }
+        .flash {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: white;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .flash-animation {
+            animation: flash 0.5s ease-out;
+        }
+        @keyframes flash {
+            0% { opacity: 0; }
+            10% { opacity: 0.8; }
+            100% { opacity: 0; }
+        }
+        .confetti {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><circle cx="5" cy="5" r="5" fill="%23ec4899"/></svg>'),
+                            url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><circle cx="5" cy="5" r="5" fill="%23a855f7"/></svg>'),
+                            url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><circle cx="5" cy="5" r="5" fill="%236366f1"/></svg>');
+            background-size: 10px 10px;
+            animation: confetti 5s linear infinite;
+            z-index: 10;
+        }
+        @keyframes confetti {
+            0% { background-position: 0% 0%, 20% 40%, 40% 10%; }
+            100% { background-position: 0% 100%, 20% 140%, 40% 110%; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col">
+    <header class="bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white py-8 shadow-lg">
+        <div class="container mx-auto px-4 text-center">
+            <h1 class="text-4xl md:text-5xl font-bold mb-3 tracking-tight">✨ SnapMagic Photobooth ✨</h1>
+            <p class="text-pink-100 text-lg">Capture magical moments with fun filters!</p>
+        </div>
+    </header>
+
+    <main class="flex-grow container mx-auto px-4 py-8">
+        <div class="max-w-4xl mx-auto">
+            <!-- Camera Section -->
+            <div class="bg-white rounded-xl shadow-xl overflow-hidden mb-8">
+                <div class="p-4 bg-gradient-to-r from-pink-50 to-purple-50 border-b border-pink-200">
+                    <h2 class="text-xl font-semibold text-pink-800 flex items-center justify-center">
+                        <i class="fas fa-camera-retro mr-2"></i> Live Camera
+                    </h2>
+                </div>
+                
+                <div class="p-4">
+                    <div class="camera-container relative">
+                        <video id="video" class="w-full h-auto bg-gray-200" autoplay playsinline></video>
+                        <canvas id="canvas" class="hidden"></canvas>
+                        <div id="flash" class="flash"></div>
+                    </div>
+                    
+                    <div class="flex justify-center mt-4 space-x-4">
+                        <button id="captureBtn" class="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-all transform hover:scale-105 flex items-center animate-pulse">
+                            <i class="fas fa-camera mr-2"></i> Snap Photo
+                        </button>
+                        <button id="downloadBtn" class="hidden bg-gradient-to-r from-green-500 to-teal-600 hover:from-green-600 hover:to-teal-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-all transform hover:scale-105 flex items-center">
+                            <i class="fas fa-download mr-2"></i> Download Collage
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Filters Section -->
+            <div class="bg-white rounded-xl shadow-xl overflow-hidden mb-8">
+                <div class="p-4 bg-gradient-to-r from-purple-50 to-indigo-50 border-b border-purple-200">
+                    <h2 class="text-xl font-semibold text-purple-800 flex items-center justify-center">
+                        <i class="fas fa-magic mr-2"></i> Magic Filters
+                    </h2>
+                </div>
+                
+                <div class="p-4 grid grid-cols-3 sm:grid-cols-6 gap-4">
+                    <div class="filter-option active" data-filter="normal">
+                        <div class="bg-gray-200 rounded-lg overflow-hidden">
+                            <div class="aspect-w-1 aspect-h-1 bg-gray-300 flex items-center justify-center">
+                                <i class="fas fa-sliders-h text-3xl text-gray-600"></i>
+                            </div>
+                        </div>
+                        <p class="text-center mt-2 text-sm font-medium">Normal</p>
+                    </div>
+                    
+                    <div class="filter-option" data-filter="sepia">
+                        <div class="bg-gray-200 rounded-lg overflow-hidden">
+                            <div class="aspect-w-1 aspect-h-1 bg-amber-100 flex items-center justify-center">
+                                <i class="fas fa-sliders-h text-3xl text-amber-700"></i>
+                            </div>
+                        </div>
+                        <p class="text-center mt-2 text-sm font-medium">Sepia</p>
+                    </div>
+                    
+                    <div class="filter-option" data-filter="grayscale">
+                        <div class="bg-gray-200 rounded-lg overflow-hidden">
+                            <div class="aspect-w-1 aspect-h-1 bg-gray-400 flex items-center justify-center">
+                                <i class="fas fa-sliders-h text-3xl text-gray-700"></i>
+                            </div>
+                        </div>
+                        <p class="text-center mt-2 text-sm font-medium">Grayscale</p>
+                    </div>
+                    
+                    <div class="filter-option" data-filter="vintage">
+                        <div class="bg-gray-200 rounded-lg overflow-hidden">
+                            <div class="aspect-w-1 aspect-h-1 bg-yellow-100 flex items-center justify-center">
+                                <i class="fas fa-sliders-h text-3xl text-yellow-700"></i>
+                            </div>
+                        </div>
+                        <p class="text-center mt-2 text-sm font-medium">Vintage</p>
+                    </div>
+                    
+                    <div class="filter-option" data-filter="cool">
+                        <div class="bg-gray-200 rounded-lg overflow-hidden">
+                            <div class="aspect-w-1 aspect-h-1 bg-blue-100 flex items-center justify-center">
+                                <i class="fas fa-sliders-h text-3xl text-blue-700"></i>
+                            </div>
+                        </div>
+                        <p class="text-center mt-2 text-sm font-medium">Cool</p>
+                    </div>
+                    
+                    <div class="filter-option" data-filter="warm">
+                        <div class="bg-gray-200 rounded-lg overflow-hidden">
+                            <div class="aspect-w-1 aspect-h-1 bg-orange-100 flex items-center justify-center">
+                                <i class="fas fa-sliders-h text-3xl text-orange-700"></i>
+                            </div>
+                        </div>
+                        <p class="text-center mt-2 text-sm font-medium">Warm</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Gallery Section -->
+            <div class="bg-white rounded-xl shadow-xl overflow-hidden">
+                <div class="p-4 bg-gradient-to-r from-indigo-50 to-blue-50 border-b border-indigo-200">
+                    <h2 class="text-xl font-semibold text-indigo-800 flex items-center justify-center">
+                        <i class="fas fa-images mr-2"></i> Your Photo Collage
+                    </h2>
+                </div>
+                
+                <div class="p-4">
+                    <div id="gallery" class="min-h-48 bg-gray-100 rounded-lg flex items-center justify-center">
+                        <p class="text-gray-500 text-center p-4">Take 3 photos to create your collage</p>
+                    </div>
+                    
+                    <div class="mt-4 text-sm text-gray-600">
+                        <p><i class="fas fa-info-circle mr-2"></i> After taking 3 photos, your collage will be automatically generated and ready to download.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="bg-gray-800 text-white py-6">
+        <div class="container mx-auto px-4 text-center">
+            <p class="mb-2">© 2023 SnapMagic Photobooth. All rights reserved.</p>
+            <p class="text-gray-400 text-sm">Developed with ❤️ by <span class="font-semibold">hirachand</span></p>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Elements
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            const captureBtn = document.getElementById('captureBtn');
+            const downloadBtn = document.getElementById('downloadBtn');
+            const gallery = document.getElementById('gallery');
+            const flash = document.getElementById('flash');
+            const filterOptions = document.querySelectorAll('.filter-option');
+            
+            // State
+            let currentFilter = 'normal';
+            let capturedPhotos = [];
+            let stream = null;
+            
+            // Initialize camera
+            async function initCamera() {
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { 
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 },
+                            facingMode: 'user' 
+                        }, 
+                        audio: false 
+                    });
+                    video.srcObject = stream;
+                    
+                    // Set canvas dimensions to match video
+                    video.addEventListener('loadedmetadata', () => {
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                    });
+                    
+                    // Enable capture button
+                    captureBtn.disabled = false;
+                } catch (err) {
+                    console.error("Error accessing camera:", err);
+                    alert("Could not access the camera. Please make sure you've granted camera permissions.");
+                }
+            }
+            
+            // Capture photo
+            function capturePhoto() {
+                // Flash effect
+                flash.classList.add('flash-animation');
+                setTimeout(() => {
+                    flash.classList.remove('flash-animation');
+                }, 500);
+                
+                // Draw video frame to canvas with current filter
+                const context = canvas.getContext('2d');
+                context.filter = window.getComputedStyle(video).filter;
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                // Get image data URL
+                const imageData = canvas.toDataURL('image/png');
+                capturedPhotos.push(imageData);
+                
+                // Update gallery
+                updateGallery();
+                
+                // Show download button if we have 3 photos
+                if (capturedPhotos.length >= 3) {
+                    downloadBtn.classList.remove('hidden');
+                    // Add celebration effect
+                    gallery.innerHTML += '<div class="confetti absolute inset-0 pointer-events-none"></div>';
+                }
+            }
+            
+            // Update gallery display
+            function updateGallery() {
+                if (capturedPhotos.length === 0) {
+                    gallery.innerHTML = '<p class="text-gray-500 text-center p-4">Take 3 photos to create your collage</p>';
+                    return;
+                }
+                
+                // Create collage HTML
+                let collageHTML = '<div class="photo-collage w-full h-64" data-date="' + new Date().toLocaleDateString() + '">';
+                
+                // Add photos to collage (max 4)
+                for (let i = 0; i < Math.min(capturedPhotos.length, 4); i++) {
+                    collageHTML += `<img src="${capturedPhotos[i]}" alt="Photo ${i+1}" class="filter-${currentFilter}">`;
+                }
+                
+                // If we have 3 photos, make one span 2 columns
+                if (capturedPhotos.length === 3) {
+                    collageHTML = collageHTML.replace('<img', '<img class="row-span-2" ');
+                }
+                
+                collageHTML += '</div>';
+                
+                gallery.innerHTML = collageHTML;
+            }
+            
+            // Download collage
+            function downloadCollage() {
+                if (capturedPhotos.length < 3) return;
+                
+                // Create a temporary canvas for the collage
+                const tempCanvas = document.createElement('canvas');
+                const tempCtx = tempCanvas.getContext('2d');
+                
+                // Set canvas size (adjust as needed)
+                tempCanvas.width = 1000;
+                tempCanvas.height = 800;
+                
+                // Fill background
+                tempCtx.fillStyle = 'white';
+                tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+                
+                // Draw photos in collage layout
+                const imgWidth = tempCanvas.width / 2 - 20;
+                const imgHeight = tempCanvas.height / 2 - 20;
+                
+                // First photo (top-left)
+                const img1 = new Image();
+                img1.src = capturedPhotos[0];
+                tempCtx.drawImage(img1, 10, 10, imgWidth, imgHeight);
+                
+                // Second photo (top-right)
+                const img2 = new Image();
+                img2.src = capturedPhotos[1];
+                tempCtx.drawImage(img2, imgWidth + 30, 10, imgWidth, imgHeight);
+                
+                // Third photo (bottom - full width)
+                const img3 = new Image();
+                img3.src = capturedPhotos[2];
+                tempCtx.drawImage(img3, 10, imgHeight + 30, tempCanvas.width - 20, imgHeight);
+                
+                // Add date
+                tempCtx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                tempCtx.font = '24px Arial';
+                const dateText = new Date().toLocaleDateString();
+                const textWidth = tempCtx.measureText(dateText).width;
+                tempCtx.fillText(dateText, tempCanvas.width - textWidth - 20, tempCanvas.height - 20);
+                
+                // Create download link
+                const link = document.createElement('a');
+                link.download = 'photobooth-collage-' + new Date().getTime() + '.png';
+                link.href = tempCanvas.toDataURL('image/png');
+                link.click();
+            }
+            
+            // Change filter
+            function changeFilter(filter) {
+                currentFilter = filter;
+                video.className = ''; // Clear all classes
+                video.classList.add('filter-' + filter);
+                
+                // Update active state on filter options
+                filterOptions.forEach(option => {
+                    if (option.dataset.filter === filter) {
+                        option.classList.add('active');
+                    } else {
+                        option.classList.remove('active');
+                    }
+                });
+                
+                // Update gallery if we have photos
+                if (capturedPhotos.length > 0) {
+                    updateGallery();
+                }
+            }
+            
+            // Event listeners
+            captureBtn.addEventListener('click', capturePhoto);
+            downloadBtn.addEventListener('click', downloadCollage);
+            
+            filterOptions.forEach(option => {
+                option.addEventListener('click', () => {
+                    changeFilter(option.dataset.filter);
+                });
+            });
+            
+            // Initialize
+            initCamera();
+            
+            // Clean up camera stream when leaving page
+            window.addEventListener('beforeunload', () => {
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                }
+            });
+        });
+    </script>
+</body>
+</html>
